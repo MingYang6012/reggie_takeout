@@ -1,0 +1,33 @@
+server:
+  port: 8080
+spring:
+  application:
+    name: reggie_take_out
+  datasource:
+    druid:
+      driver-class-name: com.mysql.jdbc.Driver
+      url: jdbc:mysql://localhost:3306/reggie?useUnicode=true&characterEncoding=utf-8&zeroDateTimeBehavior=convertToNull&useSSL=false&allowPublicKeyRetrieval=true
+      username: root
+      password: 216012
+
+  # \u7528\u6765\u914D\u7F6E\u9759\u6001\u8D44\u6E90\u6620\u5C04\u8DEF\u5F84\u7684\u4E00\u79CD\u65B9\u5F0F
+  #web:
+  #  resources:
+  #    static-locations: {"classpath::/static/backend/" , "classpath::/static/front/"}
+  #mvc:
+  #  static-path-pattern: backend/**
+  main:
+    allow-circular-references: true
+mybatis-plus:
+  configuration:
+    #\u5728\u6620\u5C04\u5B9E\u4F53\u6216\u8005\u5C5E\u6027\u65F6\uFF0C\u5C06\u6570\u636E\u5E93\u4E2D\u8868\u540D\u548C\u5B57\u6BB5\u540D\u4E2D\u7684\u4E0B\u5212\u7EBF\u53BB\u6389\uFF0C\u6309\u7167\u9A7C\u5CF0\u547D\u540D\u6CD5\u6620\u5C04
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      id-type: ASSIGN_ID
+
+
+reggie:
+  basePath: D:\image\
+
