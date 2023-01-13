@@ -3,6 +3,13 @@ server:
 spring:
   application:
     name: reggie_take_out
+
+
+  redis:
+    host: 192.168.157.100
+    port: 6379
+    password: 216012
+    database: 0
   datasource:
     druid:
       driver-class-name: com.mysql.jdbc.Driver
