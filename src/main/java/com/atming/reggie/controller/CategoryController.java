@@ -77,6 +77,7 @@ public class CategoryController {
      */
     @PutMapping
     public R<String> updateCategory(@RequestBody Category category){
+
         log.info("用户准备修改的菜品名称为：{}",category.getName());
 
         boolean update = categoryService.updateById(category);
