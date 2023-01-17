@@ -8,6 +8,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import javax.servlet.http.HttpSession;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @CreateTime: 2022-11-15-16:29
@@ -29,6 +31,9 @@ public class UserController {
 
     @Autowired
     private UserService userService;
+
+    @Autowired
+    private RedisTemplate redisTemplate;
 
     /**
      * 发送短信验证码的方法
@@ -52,7 +57,10 @@ public class UserController {
             log.info("生成的验证码为:{}",code);
 
             //将生成的验证码保存到session域对象中
-            session.setAttribute("phone",code);
+            //session.setAttribute("phone",code);
+
+            //将随机生成的验证码保存到redis对象中，并且设置保存时间为5分钟
+            redisTemplate.opsForValue().set(phone,code,5, TimeUnit.MINUTES);
 
             return R.success("短信验证码发送成功");
         }
@@ -73,7 +81,9 @@ public class UserController {
         String code = user.get("code").toString();
 
         //从session域中获取到随机生成的验证码
-        String codeInSession = (String) session.getAttribute("phone");
+        //String codeInSession = (String) session.getAttribute("phone");
+        //从redis对象中获取到验证代码的信息
+        String codeInSession = (String)redisTemplate.opsForValue().get(phone);
 
         //将用户传入的验证码与生成的验证码做比较,比较成功,则登入成功
         if (code != null && codeInSession.equals(code)){
@@ -93,9 +103,11 @@ public class UserController {
                 userService.save(one);
             }
             session.setAttribute("user",one.getId());
+
+            //用户登录成功,删除redis中验证码的信息
+            redisTemplate.delete(phone);
+
             return R.success(one);
-
-
         }
 
         return R.error("用户登入失败");
