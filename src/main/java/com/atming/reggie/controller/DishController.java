@@ -14,10 +14,14 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.CacheManager;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.web.bind.annotation.*;
 
+import javax.annotation.Resource;
 import java.awt.im.InputMethodHighlight;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -31,6 +35,7 @@ import java.util.stream.Collectors;
 @RequestMapping("/dish")
 public class DishController {
 
+
     @Autowired
     private DishService dishService;
 
@@ -39,6 +44,10 @@ public class DishController {
 
     @Autowired
     private DishFlavorService dishFlavorService;
+
+    //注入RedisTemplate的对象实现数据缓存
+    @Autowired
+    private RedisTemplate<Object,Object> redisTemplate;
 
     /**
      * 需要解决的问题：
@@ -119,7 +128,12 @@ public class DishController {
     public R<String> save(@RequestBody DishDto dishDto) {
 
         log.info("当前传入的菜品的名称:{},以及当前菜品分类的id：{},以及当前dishflavor的name:{}", dishDto.getName(), dishDto.getCategoryId(), dishDto.getFlavors());
+
+
         dishService.saveDishAndFlavor(dishDto);
+        //在添加数据后,要删除redis的缓存,保证数据的一致性
+        String key = dishDto.getCategoryId() + "_1" ;
+        redisTemplate.delete(key); //在用户自行插入操作前,向将redis中的和这个数据有关的缓存清空
         return R.success("数据存储成功");
     }
 
@@ -164,6 +178,9 @@ public class DishController {
     public R<String> updateDishAndFlavor(@RequestBody DishDto dishDto) {
         log.info("获取到要修改的菜品的名称:{}", dishDto.getName());
         int count = dishService.updateDishAndFlavor(dishDto);
+        //在添加数据后,要删除redis的缓存,保证数据的一致性
+        String key = dishDto.getCategoryId() + "_1" ;
+        redisTemplate.delete(key); //在用户自行插入操作前,向将redis中的和这个数据有关的缓存清空
 
         if (count != 0) {
             return R.success("数据修改成功");
@@ -243,20 +260,36 @@ public class DishController {
 
     /**
      * 根据用户传入的菜品id来查询对应的菜品信息,包括菜品口味信息
-     * @param categoryId
+     * @param
      * @return
      */
     @GetMapping("/list")
-    public R<List<DishDto>> getDishList(@RequestParam("categoryId") Long categoryId){
+    //public R<List<DishDto>> getDishList(@RequestParam("categoryId") Long categoryId){
+    public R<List<DishDto>> getDishList(Dish dish){
 
-        log.info("要查询的category的id是：{}",categoryId);
+        log.info("要查询的category的id是：{}",dish.getCategoryId());
+
+        List<DishDto> dishDtos = null;
+
+        String key = dish.getCategoryId() + "_" + dish.getStatus();
+
+        //每次在用户查询菜品的时候,都要先从redis缓存中查询有没有数据
+        //如果redis缓存中有这个key的数据,就从缓存中取出这个数据然后返回
+        dishDtos = (List<DishDto>) redisTemplate.opsForValue().get(key);//从redis缓存中获取数据,指定key的数据
+
+        if (dishDtos != null){
+            return R.success(dishDtos); //如果不为空,就返回
+        }
+
+
 
         LambdaQueryWrapper<Dish> queryWrapper = new LambdaQueryWrapper<>();
-        queryWrapper.eq(Dish::getCategoryId,categoryId);
+        queryWrapper.eq(Dish::getCategoryId,dish.getCategoryId());
+        queryWrapper.eq(Dish::getStatus,1);
 
         List<Dish> list = dishService.list(queryWrapper);
 
-        List<DishDto> dishDtos = list.stream().map((item) -> {
+        dishDtos = list.stream().map((item) -> {
 
             DishDto dishDto = new DishDto();
 
@@ -264,7 +297,7 @@ public class DishController {
             BeanUtils.copyProperties(item, dishDto);
 
             LambdaQueryWrapper<DishFlavor> dishFlavorLambdaQueryWrapper = new LambdaQueryWrapper<>();
-            dishFlavorLambdaQueryWrapper.eq(categoryId != null,DishFlavor::getDishId,item.getId());
+            dishFlavorLambdaQueryWrapper.eq(dish.getCategoryId() != null,DishFlavor::getDishId,item.getId());
 
             List<DishFlavor> dishFlavors = dishFlavorService.list(dishFlavorLambdaQueryWrapper);
 
@@ -273,6 +306,9 @@ public class DishController {
             //这个时候的dishDto对象中即封装了每一个dish对象的值,还封装了categoryName属性的值
             return dishDto;
         }).collect(Collectors.toList());
+
+        //如果redis缓存中没有这个数据,就从数据库中查询数据然后返回,然后将查询到的数据放入redis中进行缓存
+        redisTemplate.opsForValue().set(key,dishDtos,30*60, TimeUnit.MINUTES); //设置过期时间
 
         return R.success(dishDtos);
 
