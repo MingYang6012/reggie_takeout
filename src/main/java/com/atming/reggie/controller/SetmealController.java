@@ -14,6 +14,9 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -45,6 +48,7 @@ public class SetmealController {
      * @return
      */
     @PostMapping
+    @CacheEvict(value = "sermealCache",allEntries = true)
     public R<String> saveSetmealAndDish(@RequestBody SetmealDto setmealDto){
         log.info("获取的当前的套餐的信息");
 
@@ -200,6 +204,8 @@ public class SetmealController {
      * @return
      */
     @PutMapping
+    @CacheEvict(value = "sermealCache",allEntries = true)
+    //在用户调用这个函数对数据库进行修改后,SpringCache框架会将用户修改的数据缓存在redis数据库中删除
     public R<String> updateData(@RequestBody SetmealDto setmealDto){
         log.info("要修改的套餐的基本信息是:{}",setmealDto.getName());
         setmealService.updateData(setmealDto);
@@ -212,6 +218,7 @@ public class SetmealController {
      * @return
      */
     @DeleteMapping
+    @CacheEvict(value = "sermealCache",allEntries = true)
     public R<String> deleteSetmealWithDish(@RequestParam("ids") List<Long> ids){
 
         log.info("要删除的套餐的id是：{}",ids);
@@ -227,6 +234,12 @@ public class SetmealController {
      * @return
      */
     @GetMapping("/list")
+    //value属性,相当于redis键值对中的key,用来映射
+    //key属性相当于redis中value数据类型为hash的数据理性,这里面存储的是value中的key的值,而value中的value才是要存储的值
+    @Cacheable(value = "sermealCache",key = "#setmeal.categoryId + '_' + #setmeal.status")
+    //使用注解的方式来进行数据缓存,用户在调用这个函数的时候,先会在redis数据库中进行查找数据key为sermealCache的数据是否存在,找到了这个key还会找
+    //#setmeal.categoryId + '_' + #setmeal.status这个拼接的数据,如果redis中没有这个数据的缓存,就会执行接下来的函数调用数据库,然后将查找到的值返回给客户端
+    //并且SpringCache框架会接收到SpringBoot返回的数据,并且存储到redis数据库中进行缓存
     public R<List<Setmeal>> selectSetmeal(Setmeal setmeal){
         log.info("要查询的套餐信息是:{}",setmeal);
         LambdaQueryWrapper<Setmeal> queryWrapper = new LambdaQueryWrapper<>();
