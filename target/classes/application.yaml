@@ -34,6 +34,9 @@ mybatis-plus:
     db-config:
       id-type: ASSIGN_ID
 
+  cache:
+    redis:
+      time-to-live: 1800000 #设置缓存有效期
 
 reggie:
   basePath: D:\image\
