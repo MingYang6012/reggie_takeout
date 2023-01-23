@@ -3,22 +3,54 @@ server:
 spring:
   application:
     name: reggie_take_out
-
   cache:
     redis:
       time-to-live: 1800000 #设置缓存有效期
-
   redis:
     host: 192.168.157.100
     port: 6379
     password: 216012
     database: 0
-  datasource:
-    druid:
-      driver-class-name: com.mysql.jdbc.Driver
-      url: jdbc:mysql://localhost:3306/reggie?useUnicode=true&characterEncoding=utf-8&zeroDateTimeBehavior=convertToNull&useSSL=false&allowPublicKeyRetrieval=true
-      username: root
-      password: 216012
+  #做数据库读写分离
+  shardingsphere:
+    datasource:
+      names:
+        master,slave
+      # 主数据源
+      master:
+        type: com.alibaba.druid.pool.DruidDataSource
+        driver-class-name: com.mysql.jdbc.Driver
+        url: jdbc:mysql://192.168.157.100:3306/reggie?characterEncoding=utf-8
+        username: root
+        password: root
+      # 从数据源
+      slave:
+        type: com.alibaba.druid.pool.DruidDataSource
+        driver-class-name: com.mysql.jdbc.Driver
+        url: jdbc:mysql://192.168.157.101:3306/reggie?characterEncoding=utf-8
+        username: root
+        password: root
+    masterslave:
+      # 读写分离配置
+      load-balance-algorithm-type: round_robin
+      # 最终的数据源名称
+      name: dataSource
+      # 主库数据源名称
+      master-data-source-name: master
+      # 从库数据源名称列表，多个逗号分隔
+      slave-data-source-names: slave
+    props:
+      sql:
+        show: true #开启SQL显示，默认false
+  main:
+    allow-bean-definition-overriding: true
+
+#  datasource:
+#    druid:
+#      driver-class-name: com.mysql.jdbc.Driver
+#      url: jdbc:mysql://localhost:3306/reggie?useUnicode=true&characterEncoding=utf-8&zeroDateTimeBehavior=convertToNull&useSSL=false&allowPublicKeyRetrieval=true
+#      username: root
+#      password: 216012
 
   # \u7528\u6765\u914D\u7F6E\u9759\u6001\u8D44\u6E90\u6620\u5C04\u8DEF\u5F84\u7684\u4E00\u79CD\u65B9\u5F0F
   #web:
@@ -26,8 +58,6 @@ spring:
   #    static-locations: {"classpath::/static/backend/" , "classpath::/static/front/"}
   #mvc:
   #  static-path-pattern: backend/**
-  main:
-    allow-circular-references: true
 mybatis-plus:
   configuration:
     #\u5728\u6620\u5C04\u5B9E\u4F53\u6216\u8005\u5C5E\u6027\u65F6\uFF0C\u5C06\u6570\u636E\u5E93\u4E2D\u8868\u540D\u548C\u5B57\u6BB5\u540D\u4E2D\u7684\u4E0B\u5212\u7EBF\u53BB\u6389\uFF0C\u6309\u7167\u9A7C\u5CF0\u547D\u540D\u6CD5\u6620\u5C04
